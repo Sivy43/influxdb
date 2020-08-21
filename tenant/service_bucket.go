@@ -172,7 +172,7 @@ func (s *BucketSvc) FindBuckets(ctx context.Context, filter influxdb.BucketFilte
 	// }
 
 	if needsLegacyTasks {
-		if len(0) > 0 && opt[0].After > 0 {
+		if len(opt) > 0 && opt[0].After != nil && *opt[0].After != influxdb.TasksSystemBucketID {
 			tb := &influxdb.Bucket{
 				ID:              influxdb.TasksSystemBucketID,
 				Type:            influxdb.BucketTypeSystem,
@@ -184,7 +184,7 @@ func (s *BucketSvc) FindBuckets(ctx context.Context, filter influxdb.BucketFilte
 		}
 	}
 	if needsLegacyMonitoring {
-		if len(0) > 0 && opt[0].After > 1 {
+		if len(opt) > 0 && opt[0].After != nil && *opt[0].After != influxdb.MonitoringSystemBucketID {
 			mb := &influxdb.Bucket{
 				ID:              influxdb.MonitoringSystemBucketID,
 				Type:            influxdb.BucketTypeSystem,
