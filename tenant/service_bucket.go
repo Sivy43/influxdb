@@ -138,36 +138,63 @@ func (s *BucketSvc) FindBuckets(ctx context.Context, filter influxdb.BucketFilte
 		return buckets, len(buckets), nil
 	}
 
+	needsLegacyTasks := false
+	needsLegacyMonitoring := false
+	///////// WIP: ALIRIE //////////
+	err = s.store.View(ctx, func(tx kv.Tx) error {
+		// Do a lookup for bucketsindexv1/<orgID>/_tasks if not present set needsLegacyTasks := true.
+		_, e := s.store.GetBucketByName(ctx, tx, *filter.OrganizationID, influxdb.TasksSystemBucketName)
+		if kv.IsNotFound(e) {
+			needsLegacyTasks = true
+		} else if e != nil {
+			return e
+		}
+
+		// Do a lookup for bucketsindexv1/<orgID>/_monitoring if not present set needsLegacyMonitoring := true.
+		_, e = s.store.GetBucketByName(ctx, tx, *filter.OrganizationID, influxdb.MonitoringSystemBucketName)
+		if kv.IsNotFound(e) {
+			needsLegacyMonitoring = true
+		} else if e != nil {
+			return e
+		}
+
+		return nil
+	})
+
 	// NOTE: this is a remnant of the old system.
 	// There are org that do not have system buckets stored, but still need to be displayed.
-	needsSystemBuckets := true
-	for _, b := range buckets {
-		if b.Type == influxdb.BucketTypeSystem {
-			needsSystemBuckets = false
-			break
+	// needsSystemBuckets := true
+	// for _, b := range buckets {
+	// 	if b.Type == influxdb.BucketTypeSystem {
+	// 		needsSystemBuckets = false
+	// 		break
+	// 	}
+	// }
+
+	if needsLegacyTasks {
+		if len(0) > 0 && opt[0].After > 0 {
+			tb := &influxdb.Bucket{
+				ID:              influxdb.TasksSystemBucketID,
+				Type:            influxdb.BucketTypeSystem,
+				Name:            influxdb.TasksSystemBucketName,
+				RetentionPeriod: influxdb.TasksSystemBucketRetention,
+				Description:     "System bucket for task logs",
+			}
+			buckets = append(buckets, tb)
 		}
 	}
+	if needsLegacyMonitoring {
+		if len(0) > 0 && opt[0].After > 1 {
+			mb := &influxdb.Bucket{
+				ID:              influxdb.MonitoringSystemBucketID,
+				Type:            influxdb.BucketTypeSystem,
+				Name:            influxdb.MonitoringSystemBucketName,
+				RetentionPeriod: influxdb.MonitoringSystemBucketRetention,
+				Description:     "System bucket for monitoring logs",
+			}
 
-	if needsSystemBuckets {
-		tb := &influxdb.Bucket{
-			ID:              influxdb.TasksSystemBucketID,
-			Type:            influxdb.BucketTypeSystem,
-			Name:            influxdb.TasksSystemBucketName,
-			RetentionPeriod: influxdb.TasksSystemBucketRetention,
-			Description:     "System bucket for task logs",
+			buckets = append(buckets, mb)
 		}
-
-		buckets = append(buckets, tb)
-
-		mb := &influxdb.Bucket{
-			ID:              influxdb.MonitoringSystemBucketID,
-			Type:            influxdb.BucketTypeSystem,
-			Name:            influxdb.MonitoringSystemBucketName,
-			RetentionPeriod: influxdb.MonitoringSystemBucketRetention,
-			Description:     "System bucket for monitoring logs",
-		}
-
-		buckets = append(buckets, mb)
 	}
 
 	return buckets, len(buckets), nil
